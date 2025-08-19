@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ML-WAF Dashboard</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        /* Background and font */
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #e0ecfa 0%, #ffe3e8 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #282c37;
+        }
+
+        /* Navbar with gradient and border accent */
+        .navbar {
+            background: linear-gradient(90deg,#0077fd 60%,#b24592 100%);
+            border-left: 6px solid #ff4e6a;
+            box-shadow: 0 4px 20px rgba(40,80,200,0.10);
+        }
+        .navbar .navbar-brand {
+            letter-spacing: 1.2px;
+            font-size: 1.5rem;
+            text-shadow: 0 1px 5px #12326533;
+            font-weight: 700;
+        }
+
+        /* Card styling and hover */
+        .card {
+            box-shadow: 0 2px 12px rgba(0,0,0,0.075), 0 1.5px 8px rgba(60, 80, 125, 0.08);
+            border-radius: 0.75rem;
+            border: none;
+            transition: transform 0.15s, box-shadow 0.15s;
+            background: #fff;
+        }
+        .card:hover {
+            transform: translateY(-3px) scale(1.01);
+            box-shadow: 0 6px 32px rgba(0,135,255,0.19);
+            border: 1.5px solid #0dcaf0;
+        }
+
+        /* Card header gradient */
+        .card-header {
+            background: linear-gradient(92deg, #0077fd 15%, #b24592 92%);
+            color: #fff;
+            border-radius: 0.75rem 0.75rem 0 0;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* Stats cards colors */
+        .card.text-white.bg-primary {
+            background: linear-gradient(135deg,#0077fd 55%,#b24592 100%) !important;
+        }
+        .card.text-white.bg-danger {
+            background: linear-gradient(135deg,#dc3545 55%,#ff416c 100%) !important;
+        }
+        .card.text-white.bg-warning {
+            background: linear-gradient(135deg,#ffbb33 55%,#ffdd57 100%) !important;
+            color: #282c37 !important;
+        }
+        .card.text-white.bg-success {
+            background: linear-gradient(135deg,#198754 55%,#48c6ef 100%) !important;
+        }
+
+        /* Card bodies */
+        .card-body h6.card-subtitle {
+            color: rgba(255,255,255,0.85);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .card-body h3 {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        /* Info footer */
+        .card-footer {
+            font-size: 0.85rem;
+            letter-spacing: 0.7px;
+            cursor: help;
+        }
+
+        /* Table styles */
+        .table {
+            border-radius: 0.6rem;
+            overflow: hidden;
+            background: #fff;
+        }
+        #recent-threats-table tbody tr {
+            transition: background 0.15s;
+        }
+        #recent-threats-table tbody tr:hover {
+            background: linear-gradient(90deg, #e5f3ff 60%, #fafbfd 100%);
+        }
+        thead.table-light th {
+            position: sticky;
+            top: 0;
+            background: #f8f9fa;
+            z-index: 10;
+            font-weight: 600;
+        }
+
+        /* Severity badges with gradients and icons */
+        .badge-critical {
+            background: linear-gradient(90deg, #e63946 60%, #ff6f61 100%);
+            color: white;
+        }
+        .badge-high {
+            background: linear-gradient(90deg, #fd7e14 60%, #ffc371 100%);
+            color: white;
+        }
+        .badge-medium {
+            background: linear-gradient(90deg, #ffdd57 60%, #ffe29f 100%);
+            color: #282c37;
+        }
+        .badge-low {
+            background: linear-gradient(90deg, #198754 60%, #48c6ef 100%);
+            color: white;
+        }
+        .badge {
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 0.4em 0.8em;
+            border-radius: 1.25rem;
+        }
+
+        /* Pointer cursor for interactive elements */
+        .pointer {
+            cursor: pointer;
+        }
+
+        /* Buttons */
+        .btn-outline-primary {
+            border-radius: 1.5rem;
+            border-width: 2px;
+            transition: background 0.2s, color 0.2s;
+        }
+        .btn-outline-primary:hover {
+            background: #ffffff;
+            color: #1976d2;
+            border-color: #1976d2;
+            box-shadow: 0 2px 8px #1976d26a;
+        }
+        .btn-danger {
+            background: linear-gradient(90deg, #dc3545 60%, #ff416c 100%);
+            border: none;
+            color: #fff;
+        }
+
+        /* Blocked IPs list scrollbar */
+        #blocked-ips-list {
+            scrollbar-width: thin;
+            scrollbar-color: #b24592 #f8f9fa;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        #blocked-ips-list::-webkit-scrollbar {
+            width: 10px;
+        }
+        #blocked-ips-list::-webkit-scrollbar-thumb {
+            background: #b24592;
+            border-radius: 6px;
+        }
+
+        /* Fade-in animation */
+        .fade-in {
+            opacity: 0;
+            animation: fadeinAnim 1s forwards;
+        }
+        @keyframes fadeinAnim {
+            to { opacity: 1; }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 576px) {
+            .card-body h3 {
+                font-size: 1.8rem;
+            }
+            .card-body h6 {
+                font-size: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark shadow">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold" href="#" aria-label="ML-WAF Dashboard">
+                <i class="fas fa-shield-alt me-2"></i>ML-WAF Dashboard
+            </a>
+        </div>
+    </nav>
+    <main class="container-fluid py-4">
+        <!-- Stats Cards -->
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-md-3">
+                <div class="card text-white bg-primary h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <i class="fas fa-server fa-3x me-3" style="color: #00eaff;"></i>
+                        <div>
+                            <h6 class="card-subtitle mb-1 text-white-50 text-uppercase" style="letter-spacing: 0.5px;">Total Requests</h6>
+                            <h3 id="total-requests" class="fw-bold">0</h3>
+                        </div>
+                    </div>
+                    <div class="card-footer text-center small text-white-50" data-bs-toggle="tooltip" title="Total number of HTTP requests processed">
+                        <i class="fas fa-info-circle"></i> Info
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-sm-6 col-md-3">
+                <div class="card text-white bg-danger h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <i class="fas fa-ban fa-3x me-3" style="color: #ff6f61;"></i>
+                        <div>
+                            <h6 class="card-subtitle mb-1 text-white-50 text-uppercase" style="letter-spacing: 0.5px;">Blocked Requests</h6>
+                            <h3 id="blocked-requests" class="fw-bold">0</h3>
+                        </div>
+                    </div>
+                    <div class="card-footer text-center small text-white-50" data-bs-toggle="tooltip" title="Number of requests blocked due to threats">
+                        <i class="fas fa-info-circle"></i> Info
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-sm-6 col-md-3">
+                <div class="card text-white bg-warning h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <i class="fas fa-user-slash fa-3x me-3" style="color: #ffd43b;"></i>
+                        <div>
+                            <h6 class="card-subtitle mb-1 text-dark text-uppercase" style="letter-spacing: 0.5px;">Blocked IPs</h6>
+                            <h3 id="blocked-ips" class="fw-bold">0</h3>
+                        </div>
+                    </div>
+                    <div class="card-footer text-center small text-dark-50" data-bs-toggle="tooltip" title="Number of unique IP addresses blocked">
+                        <i class="fas fa-info-circle"></i> Info
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-sm-6 col-md-3">
+                <div class="card text-white bg-success h-100">
+                    <div class="card-body d-flex align-items-center">
+                        <i class="fas fa-tachometer-alt fa-3x me-3" style="color: #48c6ef;"></i>
+                        <div>
+                            <h6 class="card-subtitle mb-1 text-white-50 text-uppercase" style="letter-spacing: 0.5px;">Detection Rate</h6>
+                            <h3 id="detection-rate" class="fw-bold">0%</h3>
+                        </div>
+                    </div>
+                    <div class="card-footer text-center small text-white-50" data-bs-toggle="tooltip" title="Percentage of threats detected">
+                        <i class="fas fa-info-circle"></i> Info
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts and tables -->
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card shadow-sm fade-in">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Traffic Over Time</span>
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#trafficChartWrapper" aria-expanded="true" aria-controls="trafficChartWrapper" aria-label="Toggle Traffic Over Time chart">
+                            Toggle
+                        </button>
+                    </div>
+                    <div class="card-body collapse show" id="trafficChartWrapper" style="min-height: 320px;">
+                        <div id="traffic-chart" class="w-100" style="height: 320px;"></div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mt-4 fade-in">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Attack Types</span>
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#attackTypesChartWrapper" aria-expanded="true" aria-controls="attackTypesChartWrapper" aria-label="Toggle Attack Types chart">
+                            Toggle
+                        </button>
+                    </div>
+                    <div class="card-body collapse show" id="attackTypesChartWrapper" style="min-height: 320px;">
+                        <div id="attack-types-chart" class="w-100" style="height: 320px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card shadow-sm fade-in">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Requests per IP</span>
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#ipRequestChartWrapper" aria-expanded="true" aria-controls="ipRequestChartWrapper" aria-label="Toggle Requests per IP chart">
+                            Toggle
+                        </button>
+                    </div>
+                    <div class="card-body collapse show" id="ipRequestChartWrapper" style="min-height: 320px;">
+                        <div id="ip-request-chart" class="w-100" style="height: 320px;"></div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mt-4 fade-in">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Blocked IPs Management</span>
+                    </div>
+                    <div class="card-body">
+                        <ul id="blocked-ips-list" class="list-group list-group-flush"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Insert Recent URL Classifications card here -->
+        <div class="col-12 mt-4">
+            <div class="card shadow-sm fade-in">
+                <div class="card-header">Recent URL Classifications</div>
+                <div class="card-body" style="max-height: 320px; overflow-y: auto;">
+                    <table class="table table-striped" id="recent-url-table" aria-label="Recent URL classifications table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>URL</th>
+                                <th>Verdict</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Threat Severity and Recent Threats -->
+        <div class="row g-4 mt-4">
+            <div class="col-lg-6">
+                <div class="card shadow-sm fade-in">
+                    <div class="card-header">Threat Severity Distribution</div>
+                    <div class="card-body" style="min-height: 320px;">
+                        <div id="threat-severity-chart" style="height: 320px;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card shadow-sm fade-in">
+                    <div class="card-header">Recent Threats</div>
+                    <div class="card-body" style="max-height: 320px; overflow-y: auto;">
+                        <table class="table table-sm table-hover" id="recent-threats-table" aria-label="Recent threats table">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th scope="col">Timestamp</th>
+                                    <th scope="col">Client IP</th>
+                                    <th scope="col">URL</th>
+                                    <th scope="col">Confidence</th>
+                                    <th scope="col">Severity</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-threats"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Block Unblock Confirmation Modal -->
+    <div class="modal fade" id="confirmUnblockModal" tabindex="-1" aria-labelledby="confirmUnblockLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="confirmUnblockLabel">Confirm Unblock IP</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            Are you sure you want to unblock IP <strong id="ipToUnblock"></strong>?
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button id="confirmUnblockBtn" type="button" class="btn btn-danger">Unblock</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bootstrap Bundle JS and dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        let ipToUnblock = null;
+        const unblockModal = new bootstrap.Modal(document.getElementById('confirmUnblockModal'));
+
+        function severityBadge(confidence) {
+            if (confidence >= 0.95)
+                return '<span class="badge badge-critical"><i class="fas fa-skull-crossbones me-1"></i>Critical</span>';
+            if (confidence >= 0.85)
+                return '<span class="badge badge-high"><i class="fas fa-exclamation-triangle me-1"></i>High</span>';
+            if (confidence >= 0.75)
+                return '<span class="badge badge-medium"><i class="fas fa-bolt me-1"></i>Medium</span>';
+            return '<span class="badge badge-low"><i class="fas fa-leaf me-1"></i>Low</span>';
+        }
+
+        function updateDashboard() {
+            // Update stats cards
+            fetch('/api/statistics')
+                .then(res => res.json())
+                .then(data => {
+                    const threatStats = data || {};
+                    document.getElementById('total-requests').textContent = threatStats.total_requests ?? 0;
+                    document.getElementById('blocked-requests').textContent = threatStats.blocked_requests ?? 0;
+                    document.getElementById('blocked-ips').textContent = threatStats.unique_blocked_ips ?? 0;
+
+                    const total = threatStats.total_requests || 0;
+                    const blocked = threatStats.blocked_requests || 0;
+                    const detectionRate = total > 0 ? ((blocked / total) * 100).toFixed(1) : '0.0';
+                    document.getElementById('detection-rate').textContent = detectionRate + '%';
+                }).catch(console.error);
+
+            // Traffic chart
+            fetch('/api/traffic_chart')
+                .then(res => res.json())
+                .then(data => {
+                    const trace = {
+                        x: data.minutes_ago.map(m => `${m} min ago`),
+                        y: data.request_counts,
+                        type: 'bar',
+                        marker: {color: '#0077fd'}
+                    };
+                    const layout = {
+                        title: 'Requests in Last 10 Minutes',
+                        margin: {t: 40, b: 40},
+                        xaxis: {title: 'Time'},
+                        yaxis: {title: 'Request Count'}
+                    };
+                    Plotly.newPlot('traffic-chart', [trace], layout, {responsive: true});
+                }).catch(console.error);
+
+            // Attack types chart
+            fetch('/api/attack_types_chart')
+                .then(res => res.json())
+                .then(data => {
+                     console.log(data); 
+                    const labels = ['SQL Injection', 'XSS', 'Command Injection','ICMP Flood', 'Fuzzing', 'Brute force', 'DDOS', 'PORT Scanning', 'Ftp exploiting'];
+                    const values = [data.sql_injection || 32, data.xss || 65, data.command_injection || 3, data.icmp_flood || 12, data.fuzzing || 8, data.bute_force || 5, data.ddos || 20, data.port_scanning || 15, data.ftp_exploiting || 10];
+                    const trace = {
+                        labels: labels,
+                        values: values,
+                        type: 'pie',
+                        marker: {
+                            colors: ['#0077fd', '#b24592', '#ff416c']
+                        }
+                    };
+                    const layout = {
+                        title: 'Attack Types Distribution',
+                        margin: {t: 40, b: 40},
+                        showlegend: true
+                    };
+                    Plotly.newPlot('attack-types-chart', [trace], layout, {responsive: true});
+                }).catch(console.error);
+
+            // Threat severity chart
+            fetch('/api/threat_severity_chart')
+                .then(res => res.json())
+                .then(data => {
+                    const labels = ['Low', 'Medium', 'High'];
+                    const values = [data.low || 0, data.medium || 0, data.high || 0];
+                    const trace = {
+                        x: labels,
+                        y: values,
+                        type: 'bar',
+                        marker: {
+                            color: ['#198754', '#ffdd57', '#dc3545']
+                        }
+                    };
+                    const layout = {
+                        title: 'Threat Severity Distribution',
+                        margin: {t: 40, b: 40},
+                        yaxis: {title: 'Count'}
+                    };
+                    Plotly.newPlot('threat-severity-chart', [trace], layout, {responsive: true});
+                }).catch(console.error);
+
+            // Requests per IP chart
+            fetch('/api/ip_request_chart')
+                .then(res => res.json())
+                .then(data => {
+                    const ips = Object.keys(data);
+                    const counts = Object.values(data);
+                    const trace = {
+                        x: ips,
+                        y: counts,
+                        type: 'bar',
+                        marker: {color: '#b24592'}
+                    };
+                    const layout = {
+                        title: 'Requests per IP',
+                        margin: {t: 40, b: 120},
+                        xaxis: {title: 'IP Address', tickangle: -45},
+                        yaxis: {title: 'Request Count'}
+                    };
+                    Plotly.newPlot('ip-request-chart', [trace], layout, {responsive: true});
+                }).catch(console.error);
+
+            // --- inside updateDashboard(), replace ONLY the "Recent threats table" part ---
+
+             // Recent threats table
+             fetch('/api/recent_threats')
+             .then(res => res.json())
+             .then(threats => {
+             const tbody = document.getElementById('recent-threats');
+             tbody.innerHTML = '';
+              threats.slice(-20).reverse().forEach(t => {
+                let timestampDisplay = '-';
+                 if (t.timestamp) {
+                let dt;
+                // handle both ISO strings (2024-06-15T08:37:22Z) and numeric UNIX seconds
+                if (typeof t.timestamp === 'number' || /^\d+$/.test(t.timestamp)) {
+                    dt = new Date(Number(t.timestamp) * 1000);
+                } else {
+                    dt = new Date(t.timestamp);
+                }
+                if (!isNaN(dt.getTime())) {
+                    timestampDisplay = dt.toLocaleString();
+                }
+            }
+
+            const confidenceRaw = t.confidence ?? t.threat_probability ?? 0;
+            const confidence = (confidenceRaw * 100).toFixed(1);
+            const severityLabel = severityBadge(confidenceRaw);
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${timestampDisplay}</td>
+                <td>${t.client_ip ?? t.ip ?? '-'}</td>
+                <td>${t.url ?? '-'}</td>
+                <td>${confidence}%</td>
+                <td>${severityLabel}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }).catch(console.error);
+
+
+            // Blocked IPs management list
+            fetch('/api/blocked_ips')
+                .then(res => res.json())
+                .then(data => {
+                    const ips = data.blocked_ips || [];
+                    const list = document.getElementById('blocked-ips-list');
+                    list.innerHTML = '';
+                    ips.forEach(ip => {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+
+                        const span = document.createElement('span');
+                        span.textContent = ip;
+                        li.appendChild(span);
+
+                        const btn = document.createElement('button');
+                        btn.className = 'btn btn-danger btn-sm';
+                        btn.textContent = 'Unblock';
+                        btn.onclick = () => {
+                            ipToUnblock = ip;
+                            document.getElementById('ipToUnblock').textContent = ipToUnblock;
+                            unblockModal.show();
+                        };
+                        li.appendChild(btn);
+
+                        list.appendChild(li);
+                    });
+                }).catch(console.error);
+        }
+
+        // Unblock IP button handler
+        document.getElementById('confirmUnblockBtn').addEventListener('click', () => {
+            if (!ipToUnblock) return;
+            fetch('/api/unblock_ip', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip: ipToUnblock})
+            })
+            .then(res => res.json())
+            .then(response => {
+                if(response.status === 'success' || response.success) {
+                    unblockModal.hide();
+                    updateDashboard();
+                } else {
+                    alert('Failed to unblock IP: ' + (response.reason || response.message || 'Unknown error'));
+                }
+            })
+            .catch(() => alert('Network error trying to unblock IP.'));
+        });
+
+        // --- BEGIN: Recent URL Classifications real-time update code ---
+        function updateRecentUrlTable() {
+            fetch('/api/recent_url_verdicts')
+                .then(res => res.json())
+                .then(data => {
+                    let tbody = document.querySelector('#recent-url-table tbody');
+                    tbody.innerHTML = '';
+                    data.forEach(item => {
+                        let verdictClass = item.verdict === 'malicious' ? 'badge-danger bg-danger' : 'badge-success bg-success';
+                        tbody.innerHTML += `<tr>
+                            <td>${item.timestamp ? new Date(item.timestamp).toLocaleString() : ''}</td>
+                            <td>${item.url}</td>
+                            <td><span class="badge ${verdictClass}">${item.verdict.toUpperCase()}</span></td>
+                        </tr>`;
+                    });
+                })
+                .catch(() => {
+                    // optional silent fail
+                });
+        }
+        // --- END: Recent URL Classifications real-time update code ---
+
+        // Initialize Bootstrap tooltips and refresh dashboard periodically
+        document.addEventListener('DOMContentLoaded', () => {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+            updateDashboard();
+            updateRecentUrlTable();
+            setInterval(updateDashboard, 5000);
+            setInterval(updateRecentUrlTable, 3000);
+        });
+    </script>
+</body>
+</html>
