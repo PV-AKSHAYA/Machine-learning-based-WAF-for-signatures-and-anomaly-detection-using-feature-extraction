@@ -1,8 +1,0 @@
-{
-  "headers": [
-    "User-Agent",
-    "Referer",
-    "Cookie"
-  ],
-  "max_payload_snippet": 512
-}
