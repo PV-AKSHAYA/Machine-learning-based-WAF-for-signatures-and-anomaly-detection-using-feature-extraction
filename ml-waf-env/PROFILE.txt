@@ -1,1 +1,0 @@
-$env:PYTHONPATH = "$env:PYTHONPATH;$HOME\path\to\project\src"
